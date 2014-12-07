@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>BioCatch Exercise | StackExchange User Data</title>
+
+    <!-- Bootstrap - core css -->
+    <link href="bower_components/bootstrap/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom css -->
+    <link href="index.css" rel="stylesheet">
+
+</head>
+
+<body>
+    <nav class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+        <div class="container-fluid">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand" href="#">StackExchange User Data</a>
+            </div>
+            <div id="navbar" class="navbar-collapse collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="#help">Help</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="userDetailsContainer">
+
+        <form class="form-signin" role="form">
+            <input name="userId" type="userId" id="userId" class="form-control" placeholder="User ID" required autofocus>
+            <button class="btn btn-lg btn-primary btn-block" id="getUserDataBtn" type="button" onclick="getUserDataBtnClk()">Get user data</button>
+        </form>
+
+        <div class="panel panel-default">
+            <!-- Default panel contents -->
+            <div class="panel-heading">
+                <h2 class="panel-title"><strong>User's details</strong></h2>
+            </div>
+
+            <div class="table-responsive" id="usersDetailsTable">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Age</th>
+                            <th>Location</th>
+                            <th>Reputation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="panel panel-default" id="topTagsPanel">
+            <div class="panel-heading" id="topTagsPanelHeading">
+                <h2 class="panel-title"><strong>User's active tags</strong></h2>
+            </div>
+            <div class="panel-body" id="topTagsPanelBody">
+            </div>
+        </div>
+
+        <div class="panel panel-default" id="activityPanel">
+            <div class="panel-heading" id="activityPanelHeading">
+                <h2 class="panel-title"><strong>User's activity</strong></h2>
+            </div>
+            <div class="panel-body" id="activityPanelBody">
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Global definitions -------------------------------------------------
+        var userData;
+        var seApi = 'https://api.stackexchange.com/2.2/';
+        var seAppKey = "I7Z2eF9cwG18P*N6hgiaZA((";
+
+         // UI callback functions ---------------------------------------------
+        function getUserDataBtnClk() {
+            var userId = $("#userId").val();
+
+            fetchAndRenderUserData(userId);
+        }
+
+        function fetchAndRenderUserData(userId) {
+            clearUi();
+            userData = {
+                basicDetails: {},
+                tags: {},
+                answers: [],
+                totalAnswers: 0,
+                posts: [],
+                totalPosts: 0,
+                comments: [],
+                totalComments: 0,
+                dataLoaded: 0
+            };
+
+            getUserData(userId);
+            getUserAnswers(userId);
+        }
+
+         // SE api call functions ---------------------------------------------
+        function getUserData(userId) {
+            getUserBasicDetails(userId);
+            getUserTags(userId);
+        }
+
+        function getUserBasicDetails(userId) {
+            if (userId != []) {
+                $.getJSON(seApi + 'users/' + userId + '?', {
+                    site: 'stackoverflow',
+                    order: 'desc',
+                    key: seAppKey
+                })
+                    .done(function (data) {
+                        userData.basicDetails = data.items;
+                        displayUserData();
+                    });
+            }
+        }
+
+        function getUserTags(userId) {
+            if (userId != []) {
+                $.getJSON(seApi + 'users/' + userId + '/tags?', {
+                    site: 'stackoverflow',
+                    order: 'desc',
+                    sort: 'popular',
+                    key: seAppKey
+                })
+                    .done(function (data) {
+                        userData.tags = data.items;
+                        displayUserTags();
+                    });
+            }
+        }
+
+        function getUserAnswers(userId) {
+            if (userId != []) {
+                getUserAnswersPage(userId, 1);
+            }
+        }
+
+        function getUserAnswersPage(userId, pageNum) {
+
+            $.getJSON(seApi + 'users/' + userId + '/answers?', {
+                site: 'stackoverflow',
+                order: 'desc',
+                sort: 'activity',
+                pagesize: 100,
+                page: pageNum,
+                key: seAppKey
+
+            })
+                .done(function (data) {
+                    userData.answers.push(data.items);
+                    userData.totalAnswers += data.items.length;
+                    if (data.has_more)
+                        getUserAnswersPage(userId, pageNum + 1);
+                    else
+                        getUserPosts(userId);
+                });
+        }
+
+        function getUserPosts(userId) {
+            if (userId != []) {
+                getUserPostsPage(userId, 1);
+            }
+        }
+
+        function getUserPostsPage(userId, pageNum) {
+
+            $.getJSON(seApi + 'users/' + userId + '/posts?', {
+                site: 'stackoverflow',
+                order: 'desc',
+                sort: 'activity',
+                pagesize: 100,
+                page: pageNum,
+                key: seAppKey
+
+            })
+                .done(function (data) {
+                    userData.posts.push(data.items);
+                    userData.totalPosts += data.items.length;
+                    if (data.has_more)
+                        getUserPostsPage(userId, pageNum + 1);
+                    else
+                        getUserComments(userId);
+                });
+        }
+
+        function getUserComments(userId) {
+            if (userId != []) {
+                getUserCommentsPage(userId, 1);
+            }
+        }
+
+        function getUserCommentsPage(userId, pageNum) {
+
+            $.getJSON(seApi + 'users/' + userId + '/comments?', {
+                site: 'stackoverflow',
+                order: 'desc',
+                sort: 'creation',
+                pagesize: 100,
+                page: pageNum,
+                key: seAppKey
+
+            })
+                .done(function (data) {
+                    userData.comments.push(data.items);
+                    userData.totalComments += data.items.length;
+                    if (data.has_more)
+                        getUserCommentsPage(userId, pageNum + 1);
+                    else
+                        displayUserActivity();
+                });
+        }
+
+         // Debug functions ---------------------------------------------------
+        function logUserData() {
+            $.each(userData, function (i, item) {
+                console.info(item.display_name)
+            });
+        }
+
+         // UI update functions -----------------------------------------------
+        function clearUi() {
+            $("#usersDetailsTable tbody > tr").remove();
+            $("#topTagsPanelBody").empty();
+            $("#activityPanelBody").empty();
+        }
+
+        function displayUserData() {
+            $.each(userData.basicDetails, function (i, item) {
+                $("#usersDetailsTable").find('tbody')
+                    .append($('<tr>')
+                        .append($('<img>')
+                            .attr('src', item.profile_image))
+                        .append($('<td>').text(item.user_id))
+                        .append($('<td>').text(item.display_name))
+                        .append($('<td>').text(item.age))
+                        .append($('<td>').text(item.location))
+                        .append($('<td>').text(item.reputation))
+                );
+            });
+        }
+
+        function displayUserTags() {
+            if (userData.tags.length != 0) {
+
+                // Arrange data
+                var tagsTree = convertToTree(userData.tags);
+
+                // Render data
+                var diameter = 400,
+                    format = d3.format(",d"),
+                    color = d3.scale.category20c();
+
+                var bubble = d3.layout.pack()
+                    .sort(null)
+                    .size([diameter, diameter])
+                    .padding(10);
+
+                var svg = d3.select("#topTagsPanelBody").append("svg")
+                    .attr("width", diameter)
+                    .attr("height", diameter)
+                    .attr("class", "bubble");
+
+                var node = svg.selectAll(".node")
+                    .data(bubble.nodes(tagsTree)
+                        .filter(function (d) {
+                            return !d.children;
+                        }))
+                    .enter().append("g")
+                    .attr("class", "node")
+                    .attr("transform", function (d) {
+                        return "translate(" + d.x + "," + d.y + ")";
+                    });
+
+                node.append("title")
+                    .text(function (d) {
+                        return d.name;
+                    });
+
+                node.append("circle")
+                    .attr("r", function (d) {
+                        return d.r;
+                    })
+                    .style("fill", function (d) {
+                        return color(d.name);
+                    });
+
+                node.append("text")
+                    .attr("dy", ".3em")
+                    .style("text-anchor", "middle")
+                    .text(function (d) {
+                        return d.name.substring(0, d.r / 4);
+                    });
+            } else {
+                $("#topTagsPanelBody").append("<h3>No tags found for current user</h3>");
+            }
+        }
+
+        function displayUserActivity() {
+
+            // Arrange data
+            data = [
+                {
+                    name: "answers",
+                    value: userData.totalAnswers
+                    },
+                {
+                    name: "posts",
+                    value: userData.totalPosts
+                    },
+                {
+                    name: "comments",
+                    value: userData.totalComments
+                    }
+            ];
+
+            // Render data
+            var margin = {
+                    top: 20,
+                    right: 20,
+                    bottom: 30,
+                    left: 40
+                },
+                width = 400 - margin.left - margin.right,
+                height = 300 - margin.top - margin.bottom;
+
+            var x = d3.scale.ordinal()
+                .rangeRoundBands([0, width], .1);
+
+            var y = d3.scale.linear()
+                .range([height, 0]);
+
+            var xAxis = d3.svg.axis()
+                .scale(x)
+                .orient("bottom");
+
+            var yAxis = d3.svg.axis()
+                .scale(y)
+                .orient("left");
+
+            var svg = d3.select("#activityPanelBody").append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+            x.domain(data.map(function (d) {
+                return d.name;
+            }));
+            y.domain([0, d3.max(data, function (d) {
+                return d.value;
+            })]);
+
+            svg.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(0," + height + ")")
+                .call(xAxis);
+
+            svg.append("g")
+                .attr("class", "y axis")
+                .call(yAxis)
+                .append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("y", 6)
+                .attr("dy", ".71em")
+                .style("text-anchor", "end")
+
+            svg.selectAll(".bar")
+                .data(data)
+                .enter().append("rect")
+                .attr("class", "bar")
+                .attr("x", function (d) {
+                    return x(d.name);
+                })
+                .attr("width", x.rangeBand())
+                .attr("y", function (d) {
+                    return y(d.value);
+                })
+                .attr("height", function (d) {
+                    return height - y(d.value);
+                });
+
+        }
+
+         // Helper functions --------------------------------------------------
+        function convertToTree(data) {
+            var treeStructure = [];
+
+            data.forEach(function (item) {
+                treeStructure.push({
+                    name: item.name,
+                    value: item.count
+                });
+            });
+
+            return {
+                children: treeStructure
+            };
+        }
+    </script>
+
+    <!-- Other scripts used on this page -->
+    <script type='text/javascript' src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script type='text/javascript' src="bower_components/bootstrap/dist/js/bootstrap.min.js"></script>
+    <script type='text/javascript' src="bower_components/d3/d3.min.js"></script>
+</body>
+
+</html>
